@@ -1,0 +1,104 @@
+name: C++ Solving Update
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Required for git diff to work properly
+    
+    - name: Set up environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y g++ bc
+
+    - name: Get changed files
+      id: changed-files
+      run: |
+        # List all changed/added C++ files
+        echo "Changed files:"
+        git diff --name-only --diff-filter=AM HEAD^1 HEAD | grep -E '\.cpp$' || echo "No .cpp files changed"
+        echo "cpp_files<<EOF" >> $GITHUB_OUTPUT
+        git diff --name-only --diff-filter=AM HEAD^1 HEAD | grep -E '\.cpp$' || echo "" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Process C++ files and generate README
+      id: process-files
+      run: |
+        # Install bc for floating point calculations
+        sudo apt-get install -y bc
+
+        # Initialize README
+        echo "# C++ Solutions Status" > README.md
+        echo "" >> README.md
+        echo "| Difficulty | Problem | Solution | Status | Runtime | Last Updated |" >> README.md
+        echo "|------------|---------|----------|--------|---------|--------------|" >> README.md
+
+        # Function to process a single C++ file
+        process_cpp_file() {
+          local file="$1"
+          local difficulty=$(dirname "$file")
+          local filename=$(basename "$file")
+          local problem_name="${filename%.*}"
+          local output_name="temp_${filename%.*}.out"
+          local start_time end_time runtime status="Error"
+          local problem_link=""
+          local last_updated=$(git log -1 --pretty=format:"%ad" --date=format:"%Y-%m-%d %H:%M:%S" -- "$file")
+
+          echo "⌛ Processing $file..."
+
+          # Compile
+          if g++ -std=c++17 "$file" -o "$output_name" 2>compilation.log; then
+            # Run and measure time
+            start_time=$(date +%s.%N)
+            if "./$output_name" &>execution.log; then
+              status="✅ Accepted"
+              end_time=$(date +%s.%N)
+              runtime=$(echo "$end_time - $start_time" | bc | awk '{printf "%.3f s", $1}')
+            else
+              status="❌ Runtime Error"
+              runtime="N/A"
+            fi
+          else
+            status="❌ Compile Error"
+            runtime="N/A"
+          fi
+
+          # Clean up
+          rm -f "$output_name" compilation.log execution.log
+
+          # Add to README
+          echo "| $difficulty | $problem_name | [$filename]($file) | $status | $runtime | $last_updated |" >> README.md
+        }
+
+        # Export function to use in find
+        export -f process_cpp_file
+
+        # Process all C++ files in difficulty folders
+        find easy medium hard -name "*.cpp" -exec bash -c 'process_cpp_file "$0"' {} \;
+
+        # Format README table
+        echo "" >> README.md
+        echo "_Updated: $(date '+%Y-%m-%d %H:%M:%S')_" >> README.md
+
+    - name: Commit changes
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        
+        # Only commit if there are changes
+        if git diff --quiet --exit-code README.md; then
+          echo "No changes to README.md"
+        else
+          git add README.md
+          git commit -m "📚 Auto-update README with test results [skip ci]"
+          git push
+        fi
