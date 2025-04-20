@@ -5,6 +5,7 @@
 | easy | Two Sum | [1. Two Sum.cpp](easy/1.%20Two%20Sum.cpp) | ✅ Accepted | 21 ms | 2025-04-20 15:14 |
 | easy | Palindrome Number | [9. Palindrome Number.cpp](easy/9.%20Palindrome%20Number.cpp) | ✅ Accepted | 10 ms | 2025-04-20 15:14 |
 | medium | Add Two Numbers | [2. Add Two Numbers.cpp](medium/2.%20Add%20Two%20Numbers.cpp) | ❌ Error | N/A | 2025-04-20 15:14 |
+| medium | Reverse Integer | [7. Reverse Integer.cpp](medium/7.%20Reverse%20Integer.cpp) | ❌ Error | N/A | 2025-04-20 15:14 |
 | medium | Zigzag Conversion | [6. Zigzag Conversion.cpp](medium/6.%20Zigzag%20Conversion.cpp) | ✅ Accepted | 39 ms | 2025-04-20 15:14 |
 | medium | Longest Palindromic Substring | [5. Longest Palindromic Substring.cpp](medium/5.%20Longest%20Palindromic%20Substring.cpp) | ✅ Accepted | 25 ms | 2025-04-20 15:14 |
 | medium | Longest Substring Without Repeating Characters | [3. Longest Substring Without Repeating Characters.cpp](medium/3.%20Longest%20Substring%20Without%20Repeating%20Characters.cpp) | ✅ Accepted | 56 ms | 2025-04-20 15:14 |
