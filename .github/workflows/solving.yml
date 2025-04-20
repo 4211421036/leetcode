@@ -5,100 +5,69 @@ on:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
-  workflow_dispatch:
 
 jobs:
-  build-and-test:
+  test-leetcode:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Required for git diff to works properly
     
-    - name: Set up environment
+    - name: Setup environment
       run: |
         sudo apt-get update
-        sudo apt-get install -y g++ bc
+        sudo apt-get install -y g++
 
-    - name: Get changed files
-      id: changed-files
+    - name: Process LeetCode solutions
+      id: process
       run: |
-        # List all changed/added C++ files
-        echo "Changed files:"
-        git diff --name-only --diff-filter=AM HEAD^1 HEAD | grep -E '\.cpp$' || echo "No .cpp files changed"
-        echo "cpp_files<<EOF" >> $GITHUB_OUTPUT
-        git diff --name-only --diff-filter=AM HEAD^1 HEAD | grep -E '\.cpp$' || echo "" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
-
-    - name: Process C++ files and generate README
-      id: process-files
-      run: |
-        # Install bc for floating point calculations
-        sudo apt-get install -y bc
-
         # Initialize README
-        echo "# C++ Solutions Status" > README.md
+        echo "# LeetCode Solutions Status" > README.md
         echo "" >> README.md
-        echo "| Difficulty | Problem | Solution | Status | Runtime | Last Updated |" >> README.md
+        echo "| Difficulty | Problem | Solution | Status | Runtime | Cases Passed |" >> README.md
         echo "|------------|---------|----------|--------|---------|--------------|" >> README.md
 
-        # Function to process a single C++ file
-        process_cpp_file() {
+        process_file() {
           local file="$1"
           local difficulty=$(dirname "$file")
           local filename=$(basename "$file")
-          local problem_name="${filename%.*}"
-          local output_name="temp_${filename%.*}.out"
-          local start_time end_time runtime status="Error"
-          local problem_link=""
-          local last_updated=$(git log -1 --pretty=format:"%ad" --date=format:"%Y-%m-%d %H:%M:%S" -- "$file")
+          local problem="${filename%.*}"
+          local output="${filename%.*}.out"
+          local test_cases=0
+          local passed_cases=0
+          local status="❌ Error"
+          local runtime="N/A"
 
-          echo "⌛ Processing $file..."
+          echo "🔍 Testing $difficulty/$filename..."
 
-          # Compile
-          if g++ -std=c++17 "$file" -o "$output_name" 2>compilation.log; then
-            # Run and measure time
+          # Compile with common LeetCode flags
+          if g++ -std=c++17 -O2 -Wall "$file" -o "$output"; then
+            # Basic test (modify this according to your needs)
             start_time=$(date +%s.%N)
-            if "./$output_name" &>execution.log; then
-              status="✅ Accepted"
+            if "./$output" > output.log 2>&1; then
               end_time=$(date +%s.%N)
               runtime=$(echo "$end_time - $start_time" | bc | awk '{printf "%.3f s", $1}')
-            else
-              status="❌ Runtime Error"
-              runtime="N/A"
+              status="✅ Accepted"
+              
+              # Simple case counting (adjust as needed)
+              test_cases=$(grep -c "Case" output.log || echo 0)
+              passed_cases=$(grep -c "Passed" output.log || echo 0)
             fi
-          else
-            status="❌ Compile Error"
-            runtime="N/A"
           fi
 
-          # Clean up
-          rm -f "$output_name" compilation.log execution.log
+          # Cleanup
+          rm -f "$output" output.log
 
-          # Add to README
-          echo "| $difficulty | $problem_name | [$filename]($file) | $status | $runtime | $last_updated |" >> README.md
+          # Add to README with proper relative path
+          echo "| $difficulty | $problem | [${filename}]($file) | $status | $runtime | $passed_cases/$test_cases |" >> README.md
         }
 
-        # Export function to use in find
-        export -f process_cpp_file
+        export -f process_file
+        find easy medium hard -name "*.cpp" -exec bash -c 'process_file "$0"' {} \;
 
-        # Process all C++ files in difficulty folders
-        find easy medium hard -name "*.cpp" -exec bash -c 'process_cpp_file "$0"' {} \;
-
-        # Format README table
-        echo "" >> README.md
-        echo "_Updated: $(date '+%Y-%m-%d %H:%M:%S')_" >> README.md
-
-    - name: Commit changes
+    - name: Commit README
       run: |
         git config --global user.name "GitHub Actions"
         git config --global user.email "actions@github.com"
-        
-        # Only commit if there are changes
-        if git diff --quiet --exit-code README.md; then
-          echo "No changes to README.md"
-        else
-          git add README.md
-          git commit -m "📚 Auto-update README with test results [skip ci]"
-          git push
-        fi
+        git add README.md
+        git diff --quiet && git diff --staged --quiet || git commit -m "Update README with test results"
+        git push
